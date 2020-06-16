@@ -1,0 +1,7 @@
+{
+  "name": "com.mnarimani.quick-find",
+  "displayName": "Quick Component Find",
+  "version": "1.0.0",
+  "description": "Adds quick find button to scriptable object fields. Adds Find in parent, Find in self, Find in children actions to context menu.",
+  "category": "Unity"
+}
