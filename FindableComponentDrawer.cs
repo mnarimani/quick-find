@@ -4,7 +4,7 @@ using Sirenix.Utilities.Editor;
 using UnityEditor;
 using UnityEngine;
 
-namespace ShipShared.Editor
+namespace QuickFind
 {
     public class FindableComponentDrawer<T> : OdinValueDrawer<T> , IDefinesGenericMenuItems where T : Component
     {

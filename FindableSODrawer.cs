@@ -8,7 +8,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace ShipShared.Editor
+namespace QuickFind
 {
     public class FindableSODrawer<T> : OdinValueDrawer<T> where T : ScriptableObject
     {
@@ -24,6 +24,7 @@ namespace ShipShared.Editor
                 false);
 
             var buttonRect = new Rect(fieldRect.xMax, fieldRect.y, 25, fieldRect.height);
+            
             if (GUI.Button(buttonRect, "F"))
             {
                 var guids = AssetDatabase.FindAssets($"t:{typeof(T)}");
@@ -34,92 +35,79 @@ namespace ShipShared.Editor
                     return;
                 }
 
-                var similars = guids
-                    .Select(g => (AssetDatabase.GUIDToAssetPath(g)))
-                    .Select(p => (p, Path.GetFileName(p)))
-                    .ToArray();
-
                 string labelText = label?.text;
 
                 if (labelText == null)
                 {
                     labelText = Property.Parent.Label.text;
                 }
-
+                
                 if (labelText == null)
                 {
-                    ValueEntry.SmartValue = AssetDatabase.LoadAssetAtPath<T>(similars.First().p);
+                    ValueEntry.SmartValue = AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[0]));
                 }
                 else
                 {
-                    var mostSimilar = GetMostSimiliarTo(labelText, similars.Select(s => s.Item2));
+                    // Split label text into words
+                    string[] words = labelText.SplitPascalCase().Split(' ', '-', '_');
+                    
+                    (string path, string name)[] names = guids
+                        .Select(guid => (AssetDatabase.GUIDToAssetPath(guid)))
+                        .Select(path => (path, Path.GetFileName(path)))
+                        .ToArray();
 
-                    ValueEntry.SmartValue =
-                        AssetDatabase.LoadAssetAtPath<T>(similars.First(s => s.Item2 == mostSimilar).p);
+                    string mostSimilarPath = GetMostSimilarTo(words, names);
+                    
+                    ValueEntry.SmartValue = AssetDatabase.LoadAssetAtPath<T>(mostSimilarPath);
                 }
             }
         }
 
-        private string GetMostSimiliarTo(string source, IEnumerable<string> similars)
+        private string GetMostSimilarTo(string[] words, (string path, string name)[] names)
         {
-            var scores = similars.Select(s => (GetSimilarScore(source, s), s)).ToList();
-            var mostScore = scores.Max(s => s.Item1);
-            return scores.First(s => s.Item1 == mostScore).s;
+            string chosen = null;
+            int bestScore = int.MinValue;
+            
+            foreach ((string path, string name) in names)
+            {
+                // Calculate score on a word basis and add them all together
+                int currentScore = words.Sum(x => GetScore(name, x));
+
+                if (currentScore > bestScore)
+                {
+                    chosen = path;
+                    bestScore = currentScore;
+                }
+            }
+
+            return chosen;
         }
-
-
-        private int GetSimilarScore(string source, string other)
+        
+        private int GetScore(string source, string other)
         {
-            other = other.Replace(" ", "").Replace("_", "");
-            const int SameCaseCharScore = 2;
-            const int SameCharScore = 1;
+            const int sameCaseCharScore = 2;
+            const int sameCharScore = 1;
 
             int score = 0;
+            
             for (int i = 0; i < Math.Min(source.Length, other.Length); i++)
             {
-                var sChar = source[i];
-                var otherChar = other[i];
+                char sChar = source[i];
+                char otherChar = other[i];
+                
                 if (sChar == otherChar)
                 {
-                    score += SameCaseCharScore;
+                    score += sameCaseCharScore;
                     continue;
                 }
 
                 if (char.ToLower(sChar) == char.ToLower(otherChar))
                 {
-                    score += SameCharScore;
+                    score += sameCharScore;
                 }
             }
 
             return score;
         }
-
-        // public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
-        // {
-        //     Rect fieldRect = position.SubXMax(60);
-        //     EditorGUI.PropertyField(fieldRect, property, label);
-        //
-        //     if (GUI.Button(new Rect(fieldRect.xMax, fieldRect.y, 60, fieldRect.height), "Find SO"))
-        //     {
-        //         string type = property.GetProperTypeName();
-        //
-        //         var guids = AssetDatabase.FindAssets($"t:{type}");
-        //
-        //         if (guids.Length == 0)
-        //         {
-        //             Debug.LogWarning("Could not find instance of type " + type);
-        //             return;
-        //         }
-        //
-        //         if (guids.Length > 1)
-        //         {
-        //             Debug.LogWarning("Found more than one instance of type " + type);
-        //         }
-        //         
-        //         string path = AssetDatabase.GUIDToAssetPath(guids[0]);
-        //         var loaded = AssetDatabase.LoadAssetAtPath<FindableSO>(path);
-        //         property.objectReferenceValue = loaded;
-        //     }
-        // }
     }
 }
